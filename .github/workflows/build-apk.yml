@@ -20,6 +20,16 @@ jobs:
 
       - name: Cai dat Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Google vua go goi SDK "tools" (cu, khac voi "cmdline-tools") khoi
+          # kho cua ho - day la goi MAC DINH cua chinh action nay khi khong
+          # ghi "packages:" ro rang, nen build se gay ngay o buoc nay voi loi
+          # "Failed to find package 'tools'" neu khong ghi de. Chi can
+          # "platform-tools" (cho adb) - cmdline-tools (cho sdkmanager) da
+          # duoc chinh action nay tu cai san, khong phu thuoc vao dong nay;
+          # "platforms"/"build-tools" cu the da duoc buoc ke tiep tu cai
+          # rieng roi.
+          packages: 'platform-tools'
 
       - name: Dam bao co platform 34 + build-tools
         run: |
