@@ -12,6 +12,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Giai nen file zip nguon (repo chi luu file zip, khong checkin source truc tiep)
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -iname "*.zip" | head -1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "LOI: khong tim thay file .zip nao o goc repo. Cac file hien co:" >&2
+            ls -la >&2
+            exit 1
+          fi
+          echo "Tim thay file zip nguon: $ZIP_FILE"
+
+          EXTRACT_DIR="$RUNNER_TEMP/source-extracted"
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          unzip -q "$ZIP_FILE" -d "$EXTRACT_DIR"
+
+          ENTRIES=$(find "$EXTRACT_DIR" -mindepth 1 -maxdepth 1)
+          ENTRY_COUNT=$(printf '%s\n' "$ENTRIES" | grep -c .)
+          if [ "$ENTRY_COUNT" -eq 1 ] && [ -d "$ENTRIES" ]; then
+            echo "Zip co 1 thu muc con boc ngoai ($ENTRIES) - nhay vao trong do"
+            SRC_DIR="$ENTRIES"
+          else
+            SRC_DIR="$EXTRACT_DIR"
+          fi
+
+          echo "Copy noi dung tu $SRC_DIR ra goc repo..."
+          cp -a "$SRC_DIR"/. .
+
+      - name: Xac nhan cau truc sau khi giai nen (co the xoa buoc nay sau khi build on dinh)
+        run: |
+          echo "=== scripts/ da xuat hien chua ==="
+          ls -la scripts/ 2>&1 || echo "VAN CHUA CO scripts/ - kiem tra lai cau truc file zip"
+          echo ""
+          echo "=== Toan bo cay thu muc goc, toi da 2 cap (bo qua .git) ==="
+          find . -maxdepth 2 -not -path './.git*' | sort
+
       - name: Cai dat JDK 17
         uses: actions/setup-java@v4
         with:
@@ -19,17 +54,14 @@ jobs:
           java-version: '17'
 
       - name: Cai dat Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          # Google vua go goi SDK "tools" (cu, khac voi "cmdline-tools") khoi
-          # kho cua ho - day la goi MAC DINH cua chinh action nay khi khong
-          # ghi "packages:" ro rang, nen build se gay ngay o buoc nay voi loi
-          # "Failed to find package 'tools'" neu khong ghi de. Chi can
-          # "platform-tools" (cho adb) - cmdline-tools (cho sdkmanager) da
-          # duoc chinh action nay tu cai san, khong phu thuoc vao dong nay;
-          # "platforms"/"build-tools" cu the da duoc buoc ke tiep tu cai
-          # rieng roi.
-          packages: 'platform-tools'
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          CMDLINE_BIN="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
+          if [ ! -d "$CMDLINE_BIN" ]; then
+            VERSIONED_DIR=$(find "$ANDROID_SDK_ROOT/cmdline-tools" -maxdepth 1 -type d -regex '.*/[0-9][0-9.]*' | sort -V | tail -1)
+            CMDLINE_BIN="$VERSIONED_DIR/bin"
+          fi
+          echo "$CMDLINE_BIN" >> "$GITHUB_PATH"
 
       - name: Dam bao co platform 34 + build-tools
         run: |
